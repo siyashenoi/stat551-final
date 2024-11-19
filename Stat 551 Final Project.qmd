@@ -1,0 +1,29 @@
+---
+title: "Stat 551 Final Project"
+format: html
+editor: visual
+---
+
+```{r}
+library(readr)
+library(tidyverse)
+library(ggplot2)
+library(tidymodels)
+library(broom)
+```
+
+```{r}
+MH <- read_csv(here::here("Final Project", "Student Mental health.csv"))
+head(MH)
+
+M_alc <- read_csv(here::here("Final Project", "student-mat.csv"))
+head(M_alc)
+
+P_alc <- read_csv(here::here("Final Project", "student-por.csv"))
+head(P_alc)
+
+Alc=merge(M_alc,P_alc,by=c("school","sex","age","address","famsize","Pstatus","Medu","Fedu","Mjob","Fjob","reason","nursery","internet"))
+print(nrow(d3)) # 382 students
+
+head(Alc)
+```
