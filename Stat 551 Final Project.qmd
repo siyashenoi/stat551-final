@@ -56,10 +56,11 @@ MH_clean <- MH %>%
                 -`Did you seek any specialist for a treatment?`)
 
 
-mean_age <- mean(MH_clean$Age, na.rm = TRUE)
+median_age <- median(MH_clean$Age, na.rm = TRUE)
 
 missing <- which(is.na(MH_clean$Age))
 
+MH_clean$Age[is.na(MH_clean$Age)] <- median(MH_clean$Age, na.rm = TRUE)
 MH_clean
 
 
@@ -177,6 +178,50 @@ tuning_metrics_rf %>%
 
 tuning_metrics_rf
 ```
+```{r}
+rf_spec <- rand_forest(mtry = tune(), 
+                       min_n = tune(), 
+                       trees = 10) %>%
+  set_engine("ranger") %>%
+  set_mode("regression")
+
+MH_cvs <- vfold_cv(MH_clean, v=10)
+
+MH_recipe <- recipe(GPA_midpoint ~ ., data = MH_clean) %>%
+  step_rm(Course)
+
+
+rf_grid <- grid_regular(mtry(c(1,9)),
+                        min_n(),
+                        levels = 5
+                        )  
+rf_tree_wflow <- workflow() %>%
+  add_recipe(MH_recipe) %>%
+  add_model(rf_spec)
+
+tree_grid_search1 <-
+  tune_grid(
+    rf_tree_wflow,
+    resamples = MH_cvs,
+    grid = rf_grid
+  )
+
+
+tuning_metrics_rf <- tree_grid_search1 %>% collect_metrics()
+
+tuning_metrics_rf %>%
+  filter(.metric == "rmse") %>%
+  slice_min(mean)
+  
+  #slice_max(mean)
+
+tuning_metrics_rf %>%
+  filter(.metric == "rsq") %>%
+  slice_max(mean)
+
+
+tuning_metrics_rf
+```
 
 ```{r}
 tree_mod <- decision_tree() %>%
@@ -207,6 +252,7 @@ MH_lm_fit <- lin_reg_spec %>%
 tidy(MH_lm_fit)
 
 head(MH_clean)
+
 ```
 
 
@@ -302,7 +348,7 @@ ggplot(aes(x = absences)) +
 
 ```{r}
 Alc_clean %>%
-ggplot(aes(x = Final_Grade)) +
+ggplot(aes(x = Final_Grade, fill = "red4")) +
   geom_histogram() +
   labs(title = 'Distribution of Final Grades among Students',
        x = 'Final Grades', y = 'Proportion') +
