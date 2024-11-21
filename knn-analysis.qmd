@@ -40,7 +40,7 @@ MH_clean <- MH %>%
 MH_clean <- MH_clean %>%
   mutate(
     CGPA = case_when(
-      CGPA == "0 - 1.99" ~ 1.50,     
+      CGPA == "0 - 1.99" ~ 1,     
       CGPA == "2.00 - 2.49" ~ 2.25,  
       CGPA == "2.50 - 2.99" ~ 2.75,  
       CGPA == "3.00 - 3.49" ~ 3.25,  
@@ -151,6 +151,99 @@ ggplot(predictions2, aes(x = CGPA, y = .pred)) +
     y = "Predicted GPA"
   ) +
   theme_minimal()
+```
+
+# Alcohol Dataset 
+```{r}
+P_alc <- read_csv(here::here("student-por.csv"))
+head(P_alc)
+```
+
+```{r}
+Alc_clean <- P_alc %>%
+  mutate( School = as.factor(school),
+          Sex = as.factor(sex),
+          Final_Grade = G3,
+          Parent_Living = as.factor(Pstatus),
+          Failures = as.factor(failures),
+          address = as.factor(address),
+          Daily_Alc = as.factor(Dalc),
+          Weekend_Alc = as.factor(Walc),
+          guardian = as.factor(guardian),
+          reason = as.factor(reason),
+          schoolsup = as.factor(schoolsup),
+          famsup = as.factor(famsup),
+          paid = as.factor(paid),
+          activities = as.factor(activities),
+          nursery = as.factor(nursery),
+          
+          
+    
+  ) %>%
+  dplyr::select( -school, -sex, -G3, -Pstatus, -failures, -Dalc, -Walc  )
+
+head(Alc_clean)
+```
+```{r}
+alc_rec <- recipe(Final_Grade ~ age + Weekend_Alc + absences +goout +Failures + studytime, data = Alc_clean) %>%
+  step_dummy(all_nominal_predictors()) %>% 
+  step_normalize(all_numeric_predictors())
+```
+
+```{r}
+knn_workflow <- workflow() %>%
+  add_model(knn_mod_tune) %>%
+  add_recipe(alc_rec)
+
+alc_cvs <- vfold_cv(Alc_clean, v = 5, strata = Final_Grade)
+```
+
+```{r}
+knn_grid <- grid_regular(neighbors(range = c(1, 300)), levels = 20)
+
+knn_tune_results <- tune_grid(
+  knn_workflow,
+  resamples = alc_cvs,
+  grid = knn_grid
+)
+```
+
+```{r}
+knn_tune_results |> 
+  collect_metrics() |>
+  filter(.metric == "rmse") |>
+  slice_min(mean, n = 3)
+
+knn_tune_results |> 
+  collect_metrics() |>
+  filter(.metric == "rsq") |>
+  slice_max(mean, n = 3)
+```
+```{r}
+knn_mod_best <- nearest_neighbor(neighbors = 79) |>
+  set_mode("regression") |> 
+  set_engine("kknn")
+```
+
+```{r}
+best_workflow <- workflow() |>
+  add_recipe(alc_rec) |>
+  add_model(knn_mod_best)
+
+best_fit <- best_workflow |>
+  fit(Alc_clean) 
+
+best_fit |> 
+  extract_fit_parsnip()
+```
+```{r}
+predictions <- predict(best_fit, new_data = Alc_clean) %>%
+  bind_cols(Alc_clean)
+
+regression_metrics <- predictions %>%
+  metrics(truth = Final_Grade, estimate = .pred)
+
+print(regression_metrics)
 ```
 
 
