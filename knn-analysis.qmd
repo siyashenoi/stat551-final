@@ -1,0 +1,100 @@
+---
+title: "STAT 551 Final Project: KNN Analysis"
+format: html
+editor: source 
+---
+In this file, we will be using K-nearest neigbors analysis on the datasets to see if we can extract any relevant insights. 
+
+```{r setup}
+set.seed(3849)
+
+library(tidyverse)
+library(tidymodels)
+library(readr)
+library(ggplot2)
+library(broom)
+```
+
+```{r}
+MH <- read_csv(here::here("Student Mental health.csv"))
+head(MH)
+```
+
+```{r}
+MH_clean <- MH %>% 
+  mutate(
+    Gender = as.factor(`Choose your gender`),
+    Course = as.factor(`What is your course?`),
+    Year = as.factor(`Your current year of Study`),
+    CGPA = as.factor(`What is your CGPA?`),  
+    Marital_Status = as.factor(`Marital status`),
+    Depression = as.factor(`Do you have Depression?`),
+    Anxiety = as.factor(`Do you have Anxiety?`), 
+    Panic_Attacks = as.factor(`Do you have Panic attack?`),
+    Specialist_Treatment = as.factor(`Did you seek any specialist for a treatment?`)
+  ) %>%
+  select(-Timestamp)
+```
+
+```{r}
+mh_recipe <- recipe(CGPA ~ Gender + Year + Marital_Status + Depression + Anxiety + 
+                      Panic_Attacks + Specialist_Treatment, 
+                    data = MH_clean) %>%
+  step_dummy(all_nominal_predictors()) %>%  
+  step_normalize(all_numeric_predictors())
+```
+
+```{r}
+knn_mod_tune <- nearest_neighbor(neighbors = tune()) |>
+  set_engine("kknn") |>
+  set_mode("classification")
+```
+
+```{r}
+knn_workflow <- workflow() %>%
+  add_model(knn_mod_tune) %>%
+  add_recipe(mh_recipe)
+
+mh_cvs <- vfold_cv(MH_clean, v = 5, strata = CGPA)
+```
+
+```{r}
+knn_grid <- grid_regular(neighbors(range = c(1, 20)), levels = 20)
+
+set.seed(123)
+knn_tune_results <- tune_grid(
+  knn_workflow,
+  resamples = mh_cvs,
+  grid = knn_grid
+)
+```
+
+```{r}
+knn_tune_results |> 
+  collect_metrics() |>
+  filter(.metric == "roc_auc") |>
+  slice_max(mean, n = 3)
+
+knn_tune_results |> 
+  collect_metrics() |>
+  filter(.metric == "accuracy") |>
+  slice_max(mean, n = 3)
+```
+```{r}
+knn_mod_best <- nearest_neighbor(neighbors = 5) |>
+  set_mode("classification") |> 
+  set_engine("kknn")
+```
+
+```{r}
+best_workflow <- workflow() |>
+  add_recipe(mh_recipe) |>
+  add_model(knn_mod_best)
+
+best_fit <- best_workflow |>
+  fit(MH_clean) 
+
+best_fit |> 
+  extract_fit_parsnip()
+```
+
