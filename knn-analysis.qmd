@@ -37,17 +37,32 @@ MH_clean <- MH %>%
 ```
 
 ```{r}
+MH_clean <- MH_clean %>%
+  mutate(
+    CGPA = case_when(
+      CGPA == "0 - 1.99" ~ 1.50,     
+      CGPA == "2.00 - 2.49" ~ 2.25,  
+      CGPA == "2.50 - 2.99" ~ 2.75,  
+      CGPA == "3.00 - 3.49" ~ 3.25,  
+      CGPA == "3.50 - 4.00" ~ 3.75, 
+      TRUE ~ NA_real_               
+    )
+  )
+```
+
+
+```{r}
 mh_recipe <- recipe(CGPA ~ Gender + Year + Marital_Status + Depression + Anxiety + 
                       Panic_Attacks + Specialist_Treatment, 
                     data = MH_clean) %>%
-  step_dummy(all_nominal_predictors()) %>%  
+  step_dummy(all_nominal_predictors()) %>% 
   step_normalize(all_numeric_predictors())
 ```
 
 ```{r}
 knn_mod_tune <- nearest_neighbor(neighbors = tune()) |>
   set_engine("kknn") |>
-  set_mode("classification")
+  set_mode("regression")
 ```
 
 ```{r}
@@ -72,17 +87,17 @@ knn_tune_results <- tune_grid(
 ```{r}
 knn_tune_results |> 
   collect_metrics() |>
-  filter(.metric == "roc_auc") |>
-  slice_max(mean, n = 3)
+  filter(.metric == "rmse") |>
+  slice_min(mean, n = 3)
 
 knn_tune_results |> 
   collect_metrics() |>
-  filter(.metric == "accuracy") |>
+  filter(.metric == "rsq") |>
   slice_max(mean, n = 3)
 ```
 ```{r}
-knn_mod_best <- nearest_neighbor(neighbors = 5) |>
-  set_mode("classification") |> 
+knn_mod_best <- nearest_neighbor(neighbors = 2) |>
+  set_mode("regression") |> 
   set_engine("kknn")
 ```
 
@@ -97,4 +112,45 @@ best_fit <- best_workflow |>
 best_fit |> 
   extract_fit_parsnip()
 ```
+
+```{r}
+predictions <- predict(best_fit, new_data = MH_clean) %>%
+  bind_cols(MH_clean)
+
+regression_metrics <- predictions %>%
+  metrics(truth = CGPA, estimate = .pred)
+
+print(regression_metrics)
+```
+
+```{r}
+predictions2 <- predictions %>%
+  mutate(
+    actual_bin = cut(CGPA, 
+                     breaks = c(0, 2.00, 2.50, 3.00, 3.50, 4.00), 
+                     labels = c("0 - 1.99", "2.00 - 2.49", "2.50 - 2.99", "3.00 - 3.49", "3.50 - 4.00"), 
+                     include.lowest = TRUE),
+    predicted_bin = cut(.pred, 
+                        breaks = c(0, 2.00, 2.50, 3.00, 3.50, 4.00), 
+                        labels = c("0 - 1.99", "2.00 - 2.49", "2.50 - 2.99", "3.00 - 3.49", "3.50 - 4.00"), 
+                        include.lowest = TRUE)
+  )
+```
+
+```{r}
+table(predictions2$actual_bin, predictions2$predicted_bin)
+```
+
+```{r}
+ggplot(predictions2, aes(x = CGPA, y = .pred)) +
+  geom_point(alpha = 0.6, color = "blue") +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red") + 
+  labs(
+    title = "Predicted vs. Actual GPA",
+    x = "Actual GPA",
+    y = "Predicted GPA"
+  ) +
+  theme_minimal()
+```
+
 
