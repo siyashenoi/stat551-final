@@ -13,17 +13,215 @@ library(broom)
 ```
 
 ```{r}
-MH <- read_csv(here::here("Final Project", "Student Mental health.csv"))
+# Read Data
+MH <- read_csv(here::here("Student Mental health.csv"))
 head(MH)
 
-M_alc <- read_csv(here::here("Final Project", "student-mat.csv"))
+M_alc <- read_csv(here::here("student-mat.csv"))
 head(M_alc)
 
-P_alc <- read_csv(here::here("Final Project", "student-por.csv"))
+P_alc <- read_csv(here::here("student-por.csv"))
+head(P_alc)
+```
+
+#Mental Health Data
+```{r}
+# Data Cleaning
+MH_clean <- MH %>% 
+  mutate( Gender = as.factor(`Choose your gender`),
+          Course = as.factor(`What is your course?`),
+          Year = as.factor(`Your current year of Study`),
+          CGPA = as.factor(`What is your CGPA?`),
+          Marital_Status = as.factor(`Marital status`),
+          Depression = as.factor(`Do you have Depression?`),
+          Anxiety = as.factor(`Do you have Anxiety?`), 
+          Panic_Attacks = as.factor(`Do you have Panic attack?`),
+          Treatment = as.factor(`Did you seek any specialist for a treatment?`),
+          Year = ifelse(Year == "year 1", 1,
+                        ifelse(Year == "Year 1", 1,
+                        ifelse(Year == "year 2", 2,
+                        ifelse(Year == "Year 2", 2,
+                        ifelse(Year == "year 3", 3,
+                        ifelse(Year == "Year 3", 3,
+                               ifelse(Year== "year 4", 4, 4)))))))
+          )%>%
+  dplyr::select(-Timestamp, -`Choose your gender`, -`What is your course?`, -`Your current year of Study`,
+                -`What is your CGPA?`, -`Marital status`, -`Do you have Depression?`,
+                -`Do you have Anxiety?`, -`Do you have Panic attack?`, 
+                -`Did you seek any specialist for a treatment?`)
+
+
+
+
+MH_clean
+```
+```{r}
+MH_clean %>%
+ggplot(aes(x = CGPA, fill = Anxiety)) +
+  geom_bar(position = "fill") +
+  labs(title = 'Proportions of Anxiety Status within GPA Categories',
+       x = 'GPA Category', y = 'Proportion') +
+  theme_minimal() 
+
+MH_clean %>%
+ggplot(aes(x = Gender, fill = Anxiety)) +
+  geom_bar(position = "fill") +
+  labs(title = 'Proportions of Anxiety Status across Gender',
+       x = 'Gender', y = 'Proportion') +
+  theme_minimal() 
+
+MH_clean %>%
+ggplot(aes(x = Year, fill = Anxiety)) +
+  geom_bar(position = "fill") +
+  labs(title = 'Proportions of Anxiety Status across Year in School',
+       x = 'Year', y = 'Proportion') +
+  theme_minimal()
+```
+
+```{r}
+MH_clean %>%
+ggplot(aes(x = CGPA, fill = Depression)) +
+  geom_bar(position = "fill") +
+  labs(title = 'Proportions of Depression Status within GPA Categories',
+       x = 'GPA Category', y = 'Proportion') +
+  theme_minimal() 
+
+MH_clean %>%
+ggplot(aes(x = Gender, fill = Depression)) +
+  geom_bar(position = "fill") +
+  labs(title = 'Proportions of Depression Status across Gender',
+       x = 'Gender', y = 'Proportion') +
+  theme_minimal() 
+
+MH_clean %>%
+ggplot(aes(x = Year, fill = Depression)) +
+  geom_bar(position = "fill") +
+  labs(title = 'Proportions of Depression Status across Year in School',
+       x = 'Year', y = 'Proportion') +
+  theme_minimal()
+```
+
+```{r}
+MH_clean %>%
+ggplot(aes(x = CGPA, fill = Panic_Attacks)) +
+  geom_bar(position = "fill") +
+  labs(title = 'Proportions of Panic Attack Status within GPA Categories',
+       x = 'GPA Category', y = 'Proportion') +
+  theme_minimal() 
+
+MH_clean %>%
+ggplot(aes(x = Gender, fill = Panic_Attacks)) +
+  geom_bar(position = "fill") +
+  labs(title = 'Proportions of Panic Attacks Status across Gender',
+       x = 'Gender', y = 'Proportion') +
+  theme_minimal()
+
+MH_clean %>%
+ggplot(aes(x = Year, fill = Panic_Attacks)) +
+  geom_bar(position = "fill") +
+  labs(title = 'Proportions of Panic Attacks Status across Year in School',
+       x = 'Year', y = 'Proportion') +
+  theme_minimal()
+```
+
+
+#Alcohol Data 
+
+```{r}
 head(P_alc)
 
-Alc=merge(M_alc,P_alc,by=c("school","sex","age","address","famsize","Pstatus","Medu","Fedu","Mjob","Fjob","reason","nursery","internet"))
-print(nrow(d3)) # 382 students
+Alc_clean <- P_alc %>%
+  mutate( School = as.factor(school),
+          Sex = as.factor(sex),
+          Final_Grade = G3,
+          Parent_Living = as.factor(Pstatus),
+          Failures = as.factor(failures),
+          address = as.factor(address),
+          Daily_Alc = as.factor(Dalc),
+          Weekend_Alc = as.factor(Walc),
+          guardian = as.factor(guardian),
+          reason = as.factor(reason),
+          schoolsup = as.factor(schoolsup),
+          famsup = as.factor(famsup),
+          paid = as.factor(paid),
+          activities = as.factor(activities),
+          nursery = as.factor(nursery),
+          
+          
+    
+  ) %>%
+  dplyr::select( -school, -sex, -G3, -Pstatus, -failures, -Dalc, -Walc  )
 
-head(Alc)
+head(Alc_clean)
 ```
+
+```{r}
+Alc_clean %>%
+ggplot(aes(x = School, y= Final_Grade, fill=School)) +
+  geom_boxplot() +
+  labs(title = 'Final Grades Between Schools',
+       x = 'School', y = 'Grade') +
+  theme_minimal() 
+```
+```{r}
+Alc_clean %>%
+ggplot(aes(x = Weekend_Alc, y= Final_Grade, fill=Weekend_Alc)) +
+  geom_boxplot() +
+  labs(title = 'Final Grades Vs. Weekend Alcohol Consumption',
+       x = 'Weekend Alcohol Consumption', y = 'Grade') +
+  theme_minimal()
+```
+
+
+```{r}
+Alc_clean %>%
+ggplot(aes(x = Sex, fill = Weekend_Alc)) +
+  geom_bar(position = "fill") +
+  labs(title = 'Proportions of Alcohol Consumption on the Weekend across Gender',
+       x = 'Gender', y = 'Proportion') +
+  theme_minimal() 
+
+Alc_clean %>%
+ggplot(aes(x = Sex, fill = Daily_Alc)) +
+  geom_bar(position = "fill") +
+  labs(title = 'Proportions of Alcohol Consumption during the Week across Gender',
+       x = 'Gender', y = 'Proportion') +
+  theme_minimal() 
+
+Alc_clean %>%
+ggplot(aes(x = School, fill = Weekend_Alc)) +
+  geom_bar(position = "fill") +
+  labs(title = 'Proportions of Alcohol Consumption on the Weekend across Schools',
+       x = 'School', y = 'Proportion') +
+  theme_minimal() 
+```
+
+```{r}
+Alc_clean %>%
+ggplot(aes(x = Weekend_Alc, y= absences, fill=Weekend_Alc)) +
+  geom_boxplot() +
+  labs(title = 'Missed Class Vs. Weekend Alcohol Consumption',
+       x = 'Weekend Alcohol Consumption', y = 'Missed Class') +
+  theme_minimal()
+```
+
+```{r}
+Alc_clean %>%
+ggplot(aes(x = absences)) +
+  geom_histogram() +
+  labs(title = 'Distribution of Absences among Students',
+       x = 'Absences', y = 'Proportion') +
+  theme_minimal()
+```
+
+
+```{r}
+Alc_clean %>%
+ggplot(aes(x = Final_Grade)) +
+  geom_histogram() +
+  labs(title = 'Distribution of Final Grades among Students',
+       x = 'Final Grades', y = 'Proportion') +
+  theme_minimal()
+```
+
+
