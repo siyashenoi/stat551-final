@@ -43,7 +43,12 @@ MH_clean <- MH %>%
                         ifelse(Year == "Year 2", 2,
                         ifelse(Year == "year 3", 3,
                         ifelse(Year == "Year 3", 3,
-                               ifelse(Year== "year 4", 4, 4)))))))
+                               ifelse(Year== "year 4", 4, 4))))))),
+          
+          GPA_midpoint = ifelse(CGPA == "0 - 1.99", 1,
+                                ifelse(CGPA == "2.00 - 2.49", 2.25,
+                                ifelse(CGPA == "2.50 - 2.99", 2.75,
+                                ifelse(CGPA == "3.00 - 3.49", 3.25, 3.75))))
           )%>%
   dplyr::select(-Timestamp, -`Choose your gender`, -`What is your course?`, -`Your current year of Study`,
                 -`What is your CGPA?`, -`Marital status`, -`Do you have Depression?`,
@@ -55,14 +60,9 @@ mean_age <- mean(MH_clean$Age, na.rm = TRUE)
 
 missing <- which(is.na(MH_clean$Age))
 
-# Step 2: Calculate the mean of 'age', excluding the missing values
-
-
-# Step 3: Impute the missing value with the calculated mean
-MH_clean$Age[missing] <- mean_age
-
-
 MH_clean
+
+
 ```
 ```{r}
 MH_clean %>%
@@ -194,6 +194,19 @@ tree_fitted <- tree_fit_1 %>%
   extract_fit_parsnip()
 
 rpart.plot(tree_fitted$fit, roundint = FALSE)
+```
+
+```{r}
+lin_reg_spec <- linear_reg() %>%
+  set_mode("regression") %>%
+  set_engine("lm")
+
+MH_lm_fit <- lin_reg_spec %>%
+  fit(GPA_midpoint ~ Depression + Anxiety +Panic_Attacks + Age + Gender + Year +Marital_Status + Treatment, data = MH_clean)
+
+tidy(MH_lm_fit)
+
+head(MH_clean)
 ```
 
 
