@@ -51,6 +51,15 @@ MH_clean <- MH %>%
                 -`Did you seek any specialist for a treatment?`)
 
 
+mean_age <- mean(MH_clean$Age, na.rm = TRUE)
+
+missing <- which(is.na(MH_clean$Age))
+
+# Step 2: Calculate the mean of 'age', excluding the missing values
+
+
+# Step 3: Impute the missing value with the calculated mean
+MH_clean$Age[missing] <- mean_age
 
 
 MH_clean
@@ -122,6 +131,69 @@ ggplot(aes(x = Year, fill = Panic_Attacks)) +
   labs(title = 'Proportions of Panic Attacks Status across Year in School',
        x = 'Year', y = 'Proportion') +
   theme_minimal()
+```
+
+```{r}
+rf_spec <- rand_forest(mtry = tune(), 
+                       min_n = tune(), 
+                       trees = 10) %>%
+  set_engine("ranger") %>%
+  set_mode("classification")
+
+MH_cvs <- vfold_cv(MH_clean, v=10)
+
+MH_recipe <- recipe(CGPA ~ ., data = MH_clean) %>%
+  step_rm(Course)
+
+
+rf_grid <- grid_regular(mtry(c(1,9)),
+                        min_n(),
+                        levels = 5
+                        )  
+rf_tree_wflow <- workflow() %>%
+  add_recipe(MH_recipe) %>%
+  add_model(rf_spec)
+
+tree_grid_search1 <-
+  tune_grid(
+    rf_tree_wflow,
+    resamples = MH_cvs,
+    grid = rf_grid
+  )
+
+
+tuning_metrics_rf <- tree_grid_search1 %>% collect_metrics()
+
+tuning_metrics_rf %>%
+  filter(.metric == "accuracy") %>%
+  arrange(desc(mean))
+  
+  #slice_max(mean)
+
+tuning_metrics_rf %>%
+  filter(.metric == "roc_auc") %>%
+  slice_max(mean)
+
+
+tuning_metrics_rf
+```
+
+```{r}
+tree_mod <- decision_tree() %>%
+  set_engine("rpart") %>%
+  set_mode("classification")
+
+tree_wflow <- workflow() %>%
+  add_recipe(MH_recipe) %>%
+  add_model(tree_mod)
+
+tree_fit_1 <- tree_wflow %>%
+  fit(MH_clean)
+
+tree_fitted <- tree_fit_1 %>% 
+  extract_fit_parsnip()
+
+rpart.plot(tree_fitted$fit, roundint = FALSE)
 ```
 
 
@@ -223,5 +295,63 @@ ggplot(aes(x = Final_Grade)) +
        x = 'Final Grades', y = 'Proportion') +
   theme_minimal()
 ```
+```{r}
+head(Alc_clean)
+```
 
+
+```{r}
+lin_reg_spec <- linear_reg() %>%
+  set_mode("regression") %>%
+  set_engine("lm")
+  
+Alc_lm_fit <- lin_reg_spec %>%
+  fit(Final_Grade ~ age + Weekend_Alc + absences +goout +Failures + studytime, data = Alc_clean)
+
+tidy(Alc_lm_fit)
+```
+
+```{r}
+rf_spec <- rand_forest(mtry = tune(), 
+                       min_n = tune(), 
+                       trees = 10) %>%
+  set_engine("ranger") %>%
+  set_mode("regression")
+
+Alc_cvs <- vfold_cv(Alc_clean, v=10)
+
+Alc_recipe <- recipe(Final_Grade ~ ., data = Alc_clean)
+
+
+rf_grid <- grid_regular(mtry(c(1,32)),
+                        min_n(),
+                        levels = 5
+                        )  
+rf_tree_wflow <- workflow() %>%
+  add_recipe(Alc_recipe) %>%
+  add_model(rf_spec)
+
+tree_grid_search1 <-
+  tune_grid(
+    rf_tree_wflow,
+    resamples = Alc_cvs,
+    grid = rf_grid
+  )
+
+
+tuning_metrics_rf <- tree_grid_search1 %>% collect_metrics()
+
+tuning_metrics_rf %>%
+  filter(.metric == "rmse") %>%
+  arrange(desc(mean))
+  
+  #slice_max(mean)
+
+tuning_metrics_rf %>%
+  filter(.metric == "rsq") %>%
+  slice_max(mean)
+
+
+tuning_metrics_rf
+```
 
