@@ -1,0 +1,90 @@
+---
+title: "STAT 551 Final Project: Random Forest Analysis"
+format: html
+editor: source 
+---
+```{r setup}
+set.seed(3849)
+
+library(tidyverse)
+library(tidymodels)
+library(readr)
+library(ggplot2)
+library(broom)
+```
+
+```{r}
+MH <- read_csv(here::here("Student Mental health.csv"))
+
+P_alc <- read_csv(here::here("student-por.csv"))
+```
+
+```{r}
+MH_clean <- MH %>% 
+  mutate( Gender = as.factor(`Choose your gender`),
+          Course = as.factor(`What is your course?`),
+          Year = as.factor(`Your current year of Study`),
+          CGPA = as.factor(`What is your CGPA?`),
+          Marital_Status = as.factor(`Marital status`),
+          Depression = as.factor(`Do you have Depression?`),
+          Anxiety = as.factor(`Do you have Anxiety?`), 
+          Panic_Attacks = as.factor(`Do you have Panic attack?`),
+          Treatment = as.factor(`Did you seek any specialist for a treatment?`),
+          Year = ifelse(Year == "year 1", 1,
+                        ifelse(Year == "Year 1", 1,
+                        ifelse(Year == "year 2", 2,
+                        ifelse(Year == "Year 2", 2,
+                        ifelse(Year == "year 3", 3,
+                        ifelse(Year == "Year 3", 3,
+                               ifelse(Year== "year 4", 4, 4))))))),
+          
+          CGPA = ifelse(CGPA == "0 - 1.99", 1,
+                                ifelse(CGPA == "2.00 - 2.49", 2.25,
+                                ifelse(CGPA == "2.50 - 2.99", 2.75,
+                                ifelse(CGPA == "3.00 - 3.49", 3.25, 3.75))))
+          )%>%
+  dplyr::select(-Timestamp, -`Choose your gender`, -`What is your course?`, -`Your current year of Study`,
+                -`What is your CGPA?`, -`Marital status`, -`Do you have Depression?`,
+                -`Do you have Anxiety?`, -`Do you have Panic attack?`, 
+                -`Did you seek any specialist for a treatment?`)
+
+
+mean_age <- mean(MH_clean$Age, na.rm = TRUE)
+
+missing <- which(is.na(MH_clean$Age))
+```
+
+```{r}
+
+```
+
+Random Forest Analysis for Mental Health Dataset 
+
+```{r}
+rf_spec <- rand_forest(mtry = tune(), 
+                       min_n = tune(), 
+                       trees = 10) %>%
+  set_engine("ranger") %>%
+  set_mode("regression")
+
+MH_cvs <- vfold_cv(MH_clean, v=5)
+
+MH_recipe <- recipe(CGPA ~ ., data = MH_clean) %>%
+  step_rm(Course)
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+
+Random Forest Analysis for Alcohol Consumption Dataset 
+
+```{r}
+
+```
+
