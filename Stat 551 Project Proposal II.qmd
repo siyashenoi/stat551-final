@@ -1,0 +1,469 @@
+---
+title: "Stat 551 Project Proposal II"
+author: "Kendall Hipes, Siya Shenoi, Samantha Ward"
+format: 
+  html:
+    code-fold: true
+    code-line-numbers: true
+    code-tools: true
+    embed-resources: true
+editor: visual
+---
+
+# Introduction
+
+The mental health and well-being of students play a critical role in their academic performance and overall success. This data analysis project focuses on exploring the effects of mental health status on college student's GPA and academic success, as well as the impact of alcohol consumption on high school student's grades. By identifying patterns and correlations between these attributes, the study aims to look at key factors that may affect a student’s ability to succeed academically. Beyond mental health and alcohol use, additional variables such as home life, parental success, and marital status will also be examined to provide a more comprehensive understanding of the factors influencing academic performance.
+
+The findings from this analysis have the potential to benefit institutions that prioritize student well-being and academic success. High schools and colleges can utilize these insights to improve existing support systems and develop new interventions that address the specific needs of their students. Organizations that focus on youth mental health and substance abuse, such as On Our Sleeves, The Steve Fund, the Annie E. Casey Foundation, and the Child Mind Institute, may also find these results valuable. These groups work to support diverse youth populations, including individuals from economically disadvantaged backgrounds, students with learning barriers, and young people of color. Additionally, organizations like the National Institute of Drug Abuse could utilize this research to improve their efforts in reducing substance abuse among youth.
+
+Ultimately, this project seeks to inform and enhance the programs and initiatives that support students' mental health and well-being. By investigating how various factors influence academic success, the findings can help the development of updated outreach strategies and interventions to address mental health and substance abuse challenges. With this knowledge, educational institutions, health-focused organizations, and policymakers can better equip students of all ages to overcome barriers and thrive academically and personally.
+
+# Previous Work
+
+### Article 1: Association between mental health and academic performance among university undergraduates: The interacting role of lifestyle behaviors
+
+https://pmc.ncbi.nlm.nih.gov/articles/PMC9976597/
+
+This is a study investigating how GPA is affected by mental health in university students, based on a survey on Japanese university students. This study is very similar to what we wish to explore with how the mental health state of university students affects their grades, opposed to GPA, based on a variety of factors. One major difference is that the mental health of the students is measured on a psychological scale, while our study uses data with binary indicators for several mental health conditions. In addition, we aim to develop predictive and interpretation models to further understand patterns between student grades and mental health
+
+### Article 2: Study: Inverse relationship between alcohol abuse and college GPA (PennState)
+
+https://www.psu.edu/news/student-affairs/story/study-inverse-relationship-between-alcohol-abuse-and-college-gpa
+
+This article discusses a report investigating alcohol abuse in university students, and how it affects GPA. Similar to what our analysis aims to investigate, the study outlined in the article finds a strong link between frequent binge drinking episodes and lower GPAs, and takes into account the students’ mental health. This article does not outline the statistical methods used in the study, but it appears that there also was no model development between GPA and alcohol abuse, which we plan to develop and explore. Another major difference is that the data used in this report was collected from university students at Penn State, and the data we are using in our exploration is from secondary/high school aged students in Portugal. However, both data were collected in 2008.
+
+# Exploratory Data Analysis
+
+```{r, output=FALSE}
+library(readr)
+library(tidyverse)
+library(ggplot2)
+library(tidymodels)
+library(broom)
+library(rpart.plot)
+```
+
+```{r, output=FALSE}
+# Read Data
+MH <- read_csv(here::here("Student Mental health.csv"))
+head(MH)
+
+P_alc <- read_csv(here::here("student-por.csv"))
+head(P_alc)
+```
+
+## Mental Health Dataset
+
+```{r}
+# Data Cleaning
+MH_clean <- MH %>% 
+  mutate( Gender = as.factor(`Choose your gender`),
+          Course = as.factor(`What is your course?`),
+          Year = as.factor(`Your current year of Study`),
+          CGPA = as.factor(`What is your CGPA?`),
+          Marital_Status = as.factor(`Marital status`),
+          Depression = as.factor(`Do you have Depression?`),
+          Anxiety = as.factor(`Do you have Anxiety?`), 
+          Panic_Attacks = as.factor(`Do you have Panic attack?`),
+          Treatment = as.factor(`Did you seek any specialist for a treatment?`),
+          Year = ifelse(Year == "year 1", 1,
+                        ifelse(Year == "Year 1", 1,
+                        ifelse(Year == "year 2", 2,
+                        ifelse(Year == "Year 2", 2,
+                        ifelse(Year == "year 3", 3,
+                        ifelse(Year == "Year 3", 3,
+                               ifelse(Year== "year 4", 4, 4))))))),
+          
+          GPA_midpoint = ifelse(CGPA == "0 - 1.99", 1,
+                                ifelse(CGPA == "2.00 - 2.49", 2.25,
+                                ifelse(CGPA == "2.50 - 2.99", 2.75,
+                                ifelse(CGPA == "3.00 - 3.49", 3.25, 3.75))))
+          )%>%
+  dplyr::select(-Timestamp, -`Choose your gender`, -`What is your course?`, -`Your current year of Study`,
+                -`What is your CGPA?`, -`Marital status`, -`Do you have Depression?`,
+                -`Do you have Anxiety?`, -`Do you have Panic attack?`, 
+                -`Did you seek any specialist for a treatment?`)
+
+
+median_age <- median(MH_clean$Age, na.rm = TRUE)
+
+missing <- which(is.na(MH_clean$Age))
+
+MH_clean$Age[is.na(MH_clean$Age)] <- median(MH_clean$Age, na.rm = TRUE)
+
+
+```
+
+```{r}
+#Anxiety 
+
+MH_clean %>%
+ggplot(aes(x = CGPA, fill = Anxiety)) +
+  geom_bar(position = "fill") +
+  labs(title = 'Proportions of Anxiety Status within GPA Categories',
+       x = 'GPA Category', y = 'Proportion') +
+  theme_minimal() 
+
+MH_clean %>%
+ggplot(aes(x = Gender, fill = Anxiety)) +
+  geom_bar(position = "fill") +
+  labs(title = 'Proportions of Anxiety Status across Gender',
+       x = 'Gender', y = 'Proportion') +
+  theme_minimal() 
+
+MH_clean %>%
+ggplot(aes(x = Year, fill = Anxiety)) +
+  geom_bar(position = "fill") +
+  labs(title = 'Proportions of Anxiety Status across Year in School',
+       x = 'Year', y = 'Proportion') +
+  theme_minimal()
+```
+
+The three bar charts shown above describe the relationship between anxiety and various different factors. These factors include GPA categories, gender, and year in school. The proportion of individuals reporting anxiety ("Yes") is represented in teal, while those who do not report anxiety ("No") are shown in red. In the first graph, examining proportions of anxiety within GPA categories, there appears to be an increasing trend amongst the proportion of students experiencing anxiety and GPA categories. Students in the 0–1.99 GPA range report the lowest proportion of anxiety, while those in higher GPA categories, particularly 3.00–4.00, show a larger share of anxiety. The low reporting of anxiety could be a result of low numbers of survey participants that fall into these GPA categories. The second graph reveals the proportions of anxiety across gender groups. Both male and female students report similar proportions of anxiety, with slightly higher anxiety levels among females. This minor difference could indicate that anxiety is a concern across genders, though females might experience or report it at marginally higher rates. The third graph shows anxiety proportions across the year in school. Anxiety levels remain relatively consistent across all four years, with no large differences. This stability might suggest that anxiety is a persistent issue throughout students' academic journeys, unaffected by the year in school.
+
+```{r}
+#Depression
+
+
+MH_clean %>%
+ggplot(aes(x = CGPA, fill = Depression)) +
+  geom_bar(position = "fill") +
+  labs(title = 'Proportions of Depression Status within GPA Categories',
+       x = 'GPA Category', y = 'Proportion') +
+  theme_minimal() 
+
+MH_clean %>%
+ggplot(aes(x = Gender, fill = Depression)) +
+  geom_bar(position = "fill") +
+  labs(title = 'Proportions of Depression Status across Gender',
+       x = 'Gender', y = 'Proportion') +
+  theme_minimal() 
+
+MH_clean %>%
+ggplot(aes(x = Year, fill = Depression)) +
+  geom_bar(position = "fill") +
+  labs(title = 'Proportions of Depression Status across Year in School',
+       x = 'Year', y = 'Proportion') +
+  theme_minimal()
+```
+
+The three bar charts shown above describe the relationship between depression and various different factors. These factors include GPA categories, gender, and year in school. In the first graph, examining proportions of depression within GPA categories, there appears to be a decreasing trend amongst the proportion of students experiencing depression and GPA categories. Students in the 0–1.99 GPA range report the lowest proportion of depression, while those in higher GPA categories, particularly 3.00–4.00, show a larger share of depression. The second graph reveals the proportions of depression across gender groups. Females appear to have higher levels of reported depression than males. This difference could indicate higher concerns for women experiencing depression, or could indicate that females report at higher levels than males. The third graph shows depression proportions across the year in school. Depression levels remain relatively consistent across the first three years, with a slight increase in depression levels. There is a decrease in reported depression in students in their fourth year.
+
+```{r}
+#Panic Attacks
+
+MH_clean %>%
+ggplot(aes(x = CGPA, fill = Panic_Attacks)) +
+  geom_bar(position = "fill") +
+  labs(title = 'Proportions of Panic Attack Status within GPA Categories',
+       x = 'GPA Category', y = 'Proportion') +
+  theme_minimal() 
+
+MH_clean %>%
+ggplot(aes(x = Gender, fill = Panic_Attacks)) +
+  geom_bar(position = "fill") +
+  labs(title = 'Proportions of Panic Attacks Status across Gender',
+       x = 'Gender', y = 'Proportion') +
+  theme_minimal()
+
+MH_clean %>%
+ggplot(aes(x = Year, fill = Panic_Attacks)) +
+  geom_bar(position = "fill") +
+  labs(title = 'Proportions of Panic Attacks Status across Year in School',
+       x = 'Year', y = 'Proportion') +
+  theme_minimal()
+```
+
+The three bar charts shown above describe the relationship between panic attacks and various different factors. These factors include GPA categories, gender, and year in school. In the first graph, examining proportions of panic attacks within GPA categories, there appears to be an increasing trend amongst the proportion of students experiencing depression and GPA categories 0-1.99, 2.00-2.49, and 2.50-2.99. There is a drop in reported panic attacks for students within the GPA category 3.00-3.49 with a slight increase again in students within the GPA category 3.50-4.00. Students in the 3.00-3.49 GPA range report the lowest proportion of panic attacks, while those in the 2.50-2.99 GPA category show the highest proportion of panic attacks. It also appears that while there were no reported anxiety or depression in GPA categories 0-1.99 and 2.00-2.49, there are reported panic attacks for these groups. Further investigation is necessary to reveal the discrepancy in these proportions. The second graph reveals the proportions of panic attacks across gender groups. Females and males appear to have equal levels of reported panic attacks. This equal proportion may suggest that panic attacks do not differ across gender. The third graph shows panic attacks proportions across the year in school. Panic attack levels remain relatively consistent across the first three years, with a slight increase in their third year. There is a decrease in reported panic attacks in students in their fourth year.
+
+## Alcohol Dataset
+
+```{r}
+# Data cleaning
+
+Alc_clean <- P_alc %>%
+  mutate( School = as.factor(school),
+          Sex = as.factor(sex),
+          Final_Grade = G3,
+          Parent_Living = as.factor(Pstatus),
+          Failures = as.factor(failures),
+          address = as.factor(address),
+          Daily_Alc = as.factor(Dalc),
+          Weekend_Alc = as.factor(Walc),
+          guardian = as.factor(guardian),
+          reason = as.factor(reason),
+          schoolsup = as.factor(schoolsup),
+          famsup = as.factor(famsup),
+          paid = as.factor(paid),
+          activities = as.factor(activities),
+          nursery = as.factor(nursery),
+          
+          
+    
+  ) %>%
+  dplyr::select( -school, -sex, -G3, -Pstatus, -failures, -Dalc, -Walc  )
+```
+
+```{r}
+Alc_clean %>%
+ggplot(aes(x = School, y= Final_Grade, fill=School)) +
+  geom_boxplot() +
+  labs(title = 'Final Grades Between Schools',
+       x = 'School', y = 'Grade') +
+  theme_minimal() 
+```
+
+This graph examines final grades among the two schools included in this study. From this graph, it appears that Gabriel Pereira (GP) has a slightly larger median for final grades than Mousinho da Silveira (MS). It is also evident that the variability in GP final grades is smaller than MS but includes more outliers in the data. MS shows a larger variability in final grades but includes less outliers. The differences in variability could highlight the differences in academic environments and student populations in the two schools which could provide insight into differences in student drinking habits.
+
+```{r}
+Alc_clean %>%
+ggplot(aes(x = Weekend_Alc, y= Final_Grade, fill=Weekend_Alc)) +
+  geom_boxplot() +
+  labs(title = 'Final Grades Vs. Weekend Alcohol Consumption',
+       x = 'Weekend Alcohol Consumption', y = 'Grade') +
+  theme_minimal()
+```
+
+This graph examines final grades among the 5 levels of alcohol consumption. A likert scale for weekend alcohol consumption was used with 1 corresponding to very low and 5 corresponding to very high levels of weekend alcohol consumption. From this graph, students with lower levels of weekend alcohol consumption (1-3) tend to achieve slightly higher median grades compared to those who report higher alcohol consumption (4 or 5). The variability of the final grades appears to remain fairly constant across the level of alcohol weekend consumption. There appears to be a slight decreasing trend in final grades as weekend alcoholic consumption increases.
+
+```{r}
+
+Alc_clean %>%
+ggplot(aes(x = School, fill = Weekend_Alc)) +
+  geom_bar(position = "fill") +
+  labs(title = 'Proportions of Alcohol Consumption on the Weekend across Schools',
+       x = 'School', y = 'Proportion') +
+  theme_minimal() 
+```
+
+This graph examines the proportion of weekend alcohol consumption between the two schools. The two distributions show similar trends of alcohol consumption, indicating that the largest group of students reported very low levels of alcohol consumption. There is a gradual decline in the proportion of students as consumption levels increase. Only a small proportion of students indicated very high levels of weekend alcohol consumption. These similarities may suggest that school level factors are not influencing student drinking habits.
+
+```{r}
+Alc_clean %>%
+ggplot(aes(x = Weekend_Alc, y= absences, fill=Weekend_Alc)) +
+  geom_boxplot() +
+  labs(title = 'Missed Class Vs. Weekend Alcohol Consumption',
+       x = 'Weekend Alcohol Consumption', y = 'Missed Class') +
+  theme_minimal()
+```
+
+This graph examines the number of missed classes among the 5 levels of alcohol consumption. A likert scale for weekend alcohol consumption was used with 1 corresponding to very low and 5 corresponding to very high levels of weekend alcohol consumption. From this graph, students with lower levels of weekend alcohol consumption (1-3) tend to have lower median absences compared to those who report higher alcohol consumption (4 or 5). The variability of absences appears to be greater in higher levels of weekend alcohol consumption in comparison to lower levels of alcohol consumption. There appears to be a slight increasing trend in missed class as weekend alcoholic consumption increases.
+
+```{r}
+Alc_clean %>%
+ggplot(aes(x = Final_Grade, fill = "red4")) +
+  geom_histogram() +
+  labs(title = 'Distribution of Final Grades among Students',
+       x = 'Final Grades', y = 'Proportion') +
+  theme_minimal()
+```
+
+This graph gives an overview of the distribution of final grades among students. The grades follow an approximately Normal distribution with a mean around scores of 12. There are a few students receiving scores between 0 and 5, which appear to be outliers in the distribution. Further investigation into scores of 0 and 5 is necessary to provide better insight into these scores. This suggests that most students have average to slightly above-average academic performance.
+
+# Preliminary Results
+
+## Mental Health Dataset
+
+```{r}
+mh_recipe <- recipe(GPA_midpoint ~ Gender + Year + Marital_Status + Depression + Anxiety + 
+                      Panic_Attacks + Treatment, 
+                    data = MH_clean) %>%
+  step_dummy(all_nominal_predictors()) %>% 
+  step_normalize(all_numeric_predictors())
+```
+
+```{r}
+knn_mod_tune <- nearest_neighbor(neighbors = tune()) |>
+  set_engine("kknn") |>
+  set_mode("regression")
+```
+
+```{r}
+knn_workflow <- workflow() %>%
+  add_model(knn_mod_tune) %>%
+  add_recipe(mh_recipe)
+
+mh_cvs <- vfold_cv(MH_clean, v = 5, strata = GPA_midpoint)
+```
+
+```{r}
+knn_grid <- grid_regular(neighbors(range = c(1, 20)), levels = 20)
+
+set.seed(123)
+knn_tune_results <- tune_grid(
+  knn_workflow,
+  resamples = mh_cvs,
+  grid = knn_grid
+)
+```
+
+```{r}
+knn_tune_results |> 
+  collect_metrics() |>
+  filter(.metric == "rmse") |>
+  slice_min(mean, n = 3)
+
+knn_tune_results |> 
+  collect_metrics() |>
+  filter(.metric == "rsq") |>
+  slice_max(mean, n = 3)
+```
+
+```{r}
+knn_mod_best <- nearest_neighbor(neighbors = 4) |>
+  set_mode("regression") |> 
+  set_engine("kknn")
+```
+
+```{r}
+best_workflow <- workflow() |>
+  add_recipe(mh_recipe) |>
+  add_model(knn_mod_best)
+
+best_fit <- best_workflow |>
+  fit(MH_clean) 
+
+best_fit |> 
+  extract_fit_parsnip()
+```
+
+```{r}
+predictions <- predict(best_fit, new_data = MH_clean) %>%
+  bind_cols(MH_clean)
+
+regression_metrics <- predictions %>%
+  metrics(truth = GPA_midpoint, estimate = .pred)
+
+print(regression_metrics)
+```
+
+```{r}
+MH_recipe1 <- recipe(CGPA ~ ., data = MH_clean) %>%
+  step_rm(Course) %>%
+  step_rm(GPA_midpoint)
+
+tree_mod <- decision_tree() %>%
+  set_engine("rpart") %>%
+  set_mode("classification")
+
+tree_wflow <- workflow() %>%
+  add_recipe(MH_recipe1) %>%
+  add_model(tree_mod)
+
+tree_fit_1 <- tree_wflow %>%
+  fit(MH_clean)
+
+tree_fitted <- tree_fit_1 %>% 
+  extract_fit_parsnip()
+
+rpart.plot(tree_fitted$fit, roundint = FALSE)
+```
+
+## Alcohol Dataset
+
+```{r}
+alc_rec <- recipe(Final_Grade ~ age + Weekend_Alc + absences +goout +Failures + studytime, data = Alc_clean) %>%
+  step_dummy(all_nominal_predictors()) %>% 
+  step_normalize(all_numeric_predictors())
+```
+
+```{r}
+knn_workflow <- workflow() %>%
+  add_model(knn_mod_tune) %>%
+  add_recipe(alc_rec)
+
+alc_cvs <- vfold_cv(Alc_clean, v = 5, strata = Final_Grade)
+```
+
+```{r}
+knn_grid <- grid_regular(neighbors(range = c(1, 300)), levels = 20)
+
+set.seed(123)
+knn_tune_results <- tune_grid(
+  knn_workflow,
+  resamples = alc_cvs,
+  grid = knn_grid
+)
+```
+
+```{r}
+knn_tune_results |> 
+  collect_metrics() |>
+  filter(.metric == "rmse") |>
+  slice_min(mean, n = 3)
+
+knn_tune_results |> 
+  collect_metrics() |>
+  filter(.metric == "rsq") |>
+  slice_max(mean, n = 3)
+```
+
+```{r}
+knn_mod_best <- nearest_neighbor(neighbors = 48) |>
+  set_mode("regression") |> 
+  set_engine("kknn")
+```
+
+```{r}
+best_workflow <- workflow() |>
+  add_recipe(alc_rec) |>
+  add_model(knn_mod_best)
+
+best_fit <- best_workflow |>
+  fit(Alc_clean) 
+
+best_fit |> 
+  extract_fit_parsnip()
+```
+
+```{r}
+predictions <- predict(best_fit, new_data = Alc_clean) %>%
+  bind_cols(Alc_clean)
+
+regression_metrics <- predictions %>%
+  metrics(truth = Final_Grade, estimate = .pred)
+
+print(regression_metrics)
+```
+
+First, we fit a KNN model to each dataset. For the mental health dataset, the target variable was Cumulative Grade Point Average of each student. The predictors we used in the model were all of them, so Gender, year of study, marital status, depression, anxiety, panic attacks, and seeking specialist treatment.
+
+After tuning the model, we found that the optimal number of neighbors was 4. We based this decision on the metric that produced the highest R². After fitting the model to the full data, we achieved an R² of 0.251, which suggests that the model explains about 25.1% of the variance in GPA, leaving a substantial portion unexplained. The RMSE was 0.505, which is fairly low, but it could also be due to the dataset having a small number of observations.
+
+For the Alcohol Consumption and Final Grade dataset, we also used KNN regression, with the target variable being the final grade. Predictors included age, daily and weekend alcohol consumption, absences, frequency of going out, previous failures, and study time.
+
+After tuning the model, we found that the optimal number of neighbors for this recipe was 48. We based this decision on the metric that produced the highest R². The model's RMSE was 2.68, and the R² was 0.343, indicating that the predictors accounted for around 34.3% of the variance in final grades. If we include interaction, these metrics may go up.
+
+We also fit a decision tree model to the mental health dataset. As previously mentioned, the target variable was the cumulative GPA of each student and we used gender, year of study, marital status, depression, anxiety, panic attacks, and seeking specialist treatment as predictors.
+
+The model outputs a fairly simple decision tree, and it does not use 3 of the 5 GPA intervals in the data. There are very few observations in the two lowest GPA intervals, which is most likely why the tree decided to omit these classes. About 44% of the data is classified into the 3.00-3.49 range, and the other 56% is classified into the 3.50-4.00 range.
+
+However, this is not an ideal model to represent the factors that influence GPA in students, as it only classifies students into a 3.00 to 4.00 range. The data may be better represented using bagged trees or random forests, or by assigning each observation to the median GPA value of the range and conduct regression opposed to this classification method. Based on these initial results, the next steps include refining the selection of predictors, exploring non-linear relationships, and testing more models, as we aim to improve our performance metrics.
+
+# Projected Timeline
+
+Expected Conclusions: We anticipate to find significant relationships between mental health status, alcohol consumption, and academic success among students. We expect to provide insight into key factors that affect students’ academic success and to provide actionable insights on how those factors impact academic performance and well-being.
+
+These conclusions can help aid in the development of innovative interventions and support systems to improve student outcomes. Specifically, we aim to:
+
+-   Determine how factors such as depression, anxiety, or panic attacks influence GPA and academic performance\
+-   Understand the impact of alcohol consumption on grades
+
+#### 1. Data Cleaning
+
+-   Clean and handle missing data\
+-   Normalize numerical predictors and create dummy variables for categorical data
+
+#### 2. Exploratory Analysis
+
+-   Create bar charts/assess group sizes for preliminary analysis
+
+#### 3. Modeling
+
+-   Use regression models (logistic and linear regression) to quantify relationships.\
+-   Apply classification models like Random Forests and K-Nearest Neighbors for predicting academic success, for both the alcohol and Mental Health datasets
+
+#### 4. Model Evaluation
+
+-   Use cross validation to assess model accuracy\
+-   Check performance metrics and adjust model based on results

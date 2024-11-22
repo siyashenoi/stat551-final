@@ -147,7 +147,7 @@ MH_recipe <- recipe(CGPA ~ ., data = MH_clean) %>%
   step_rm(Course)
 
 
-rf_grid <- grid_regular(mtry(c(1,9)),
+rf_grid <- grid_regular(mtry(c(1,8)),
                         min_n(),
                         levels = 5
                         )  
@@ -188,7 +188,8 @@ rf_spec <- rand_forest(mtry = tune(),
 MH_cvs <- vfold_cv(MH_clean, v=10)
 
 MH_recipe <- recipe(GPA_midpoint ~ ., data = MH_clean) %>%
-  step_rm(Course)
+  step_rm(Course) %>%
+  step_rm(CGPA)
 
 
 rf_grid <- grid_regular(mtry(c(1,9)),
@@ -224,12 +225,16 @@ tuning_metrics_rf
 ```
 
 ```{r}
+MH_recipe1 <- recipe(CGPA ~ ., data = MH_clean) %>%
+  step_rm(Course) %>%
+  step_rm(GPA_midpoint)
+
 tree_mod <- decision_tree() %>%
   set_engine("rpart") %>%
   set_mode("classification")
 
 tree_wflow <- workflow() %>%
-  add_recipe(MH_recipe) %>%
+  add_recipe(MH_recipe1) %>%
   add_model(tree_mod)
 
 tree_fit_1 <- tree_wflow %>%
