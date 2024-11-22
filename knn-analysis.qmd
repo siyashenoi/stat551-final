@@ -2,6 +2,7 @@
 title: "STAT 551 Final Project: KNN Analysis"
 format: html
 editor: source 
+code-fold: show
 ---
 In this file, we will be using K-nearest neigbors analysis on the datasets to see if we can extract any relevant insights. 
 
@@ -96,7 +97,7 @@ knn_tune_results |>
   slice_max(mean, n = 3)
 ```
 ```{r}
-knn_mod_best <- nearest_neighbor(neighbors = 2) |>
+knn_mod_best <- nearest_neighbor(neighbors = 3) |>
   set_mode("regression") |> 
   set_engine("kknn")
 ```

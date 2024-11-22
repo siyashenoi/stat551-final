@@ -55,8 +55,34 @@ missing <- which(is.na(MH_clean$Age))
 ```
 
 ```{r}
+MH_clean$Age[is.na(MH_clean$Age)] <- median(MH_clean$Age, na.rm = TRUE)
+```
+
+```{r}
+Alc_clean <- P_alc %>%
+  mutate( School = as.factor(school),
+          Sex = as.factor(sex),
+          Final_Grade = G3,
+          Parent_Living = as.factor(Pstatus),
+          Failures = as.factor(failures),
+          address = as.factor(address),
+          Daily_Alc = as.factor(Dalc),
+          Weekend_Alc = as.factor(Walc),
+          guardian = as.factor(guardian),
+          reason = as.factor(reason),
+          schoolsup = as.factor(schoolsup),
+          famsup = as.factor(famsup),
+          paid = as.factor(paid),
+          activities = as.factor(activities),
+          nursery = as.factor(nursery),
+          
+          
+    
+  ) %>%
+  dplyr::select( -school, -sex, -G3, -Pstatus, -failures, -Dalc, -Walc  )
 
 ```
+
 
 Random Forest Analysis for Mental Health Dataset 
 
@@ -67,24 +93,111 @@ rf_spec <- rand_forest(mtry = tune(),
   set_engine("ranger") %>%
   set_mode("regression")
 
-MH_cvs <- vfold_cv(MH_clean, v=5)
+MH_cvs <- vfold_cv(MH_clean, v=10)
 
 MH_recipe <- recipe(CGPA ~ ., data = MH_clean) %>%
   step_rm(Course)
 ```
 
 ```{r}
+rf_grid <- grid_regular(mtry(c(1,8)),
+                        min_n(),
+                        levels = 5
+                        )  
+rf_tree_wflow <- workflow() %>%
+  add_recipe(MH_recipe) %>%
+  add_model(rf_spec)
 
+tree_grid_search1 <-
+  tune_grid(
+    rf_tree_wflow,
+    resamples = MH_cvs,
+    grid = rf_grid
+  )
+
+
+tuning_metrics_rf <- tree_grid_search1 %>% collect_metrics()
 ```
 
 ```{r}
+tuning_metrics_rf %>%
+  filter(.metric == "rsq") %>%
+  slice_max(mean)
 
+tuning_metrics_rf %>%
+  filter(.metric == "rmse") %>%
+  slice_max(mean)
 ```
 
+```{r}
+best_rf_spec <- rand_forest(mtry = 3, min_n = 21, trees = 10) |>  
+  set_engine("ranger") %>%
+  set_mode("regression")
+
+rf_wflow2 <- workflow() %>%
+  add_recipe(MH_recipe) %>%
+  add_model(best_rf_spec)
+
+best_rf_fit <- rf_wflow2 |> 
+  fit_resamples(MH_cvs)
+```
+
+```{r}
+collect_metrics(best_rf_fit)
+```
 
 Random Forest Analysis for Alcohol Consumption Dataset 
 
 ```{r}
+alc_rec <- recipe(Final_Grade ~ age + Weekend_Alc + absences +goout +Failures + studytime, data = Alc_clean) %>%
+  step_dummy(all_nominal_predictors()) %>% 
+  step_normalize(all_numeric_predictors())
 
+alc_cvs <- vfold_cv(Alc_clean, v = 5 )
+```
+
+```{r}
+rf_grid <- grid_regular(mtry(c(1,11)),
+                        min_n(),
+                        levels = 5
+                        )  
+rf_tree_wflow <- workflow() %>%
+  add_recipe(alc_rec) %>%
+  add_model(rf_spec)
+
+tree_grid_search1 <-
+  tune_grid(
+    rf_tree_wflow,
+    resamples = alc_cvs,
+    grid = rf_grid
+  )
+
+
+tuning_metrics_rf <- tree_grid_search1 %>% collect_metrics()
+```
+
+```{r}
+tuning_metrics_rf %>%
+  filter(.metric == "rsq") %>%
+  slice_max(mean)
+
+tuning_metrics_rf %>%
+  filter(.metric == "rmse") %>%
+  slice_max(mean)
+```
+
+```{r}
+best_rf_spec <- rand_forest(mtry = 8, min_n = 40, trees = 10) |>  
+  set_engine("ranger") %>%
+  set_mode("regression")
+
+rf_wflow2 <- workflow() %>%
+  add_recipe(alc_rec) %>%
+  add_model(best_rf_spec)
+
+best_rf_fit <- rf_wflow2 |> 
+  fit_resamples(alc_cvs)
+
+collect_metrics(best_rf_fit)
 ```
 
