@@ -1,0 +1,53 @@
+---
+title: "stat551proj-sam"
+author: "samantha ward"
+format: html
+editor: visual
+---
+
+```{r}
+library(tidyverse)
+library(tidymodels)
+library(glmnet)
+library(discrim)
+library(rpart)
+library(rpart.plot)
+library(baguette)
+library(kernlab)
+```
+
+```{r}
+MH <- read_csv(here::here("Student Mental health.csv"))
+head(MH)
+
+M_alc <- read_csv(here::here("student-mat.csv"))
+head(M_alc)
+
+P_alc <- read_csv(here::here("student-por.csv"))
+head(P_alc)
+
+
+```
+
+logistic reg
+
+```{r}
+mh_cv <- vfold_cv(MH_clean, v = 5)
+
+logit_mod <- logistic_reg() %>%
+  set_mode("classification") %>%
+  set_engine("glm")
+
+logit_rec1 <- recipe(CGPA ~., data = MH_clean) %>%
+  step_normalize(all_numeric_predictors()) 
+
+logit_workflow_1 <- workflow() %>%
+  add_model(logit_mod) %>%
+  add_recipe(logit_rec1)
+
+logit_fit_1 <- logit_workflow_1 %>%
+  fit_resamples(resamples = mh_cv)
+
+logit_fit_1 %>% collect_metrics()
+
+```

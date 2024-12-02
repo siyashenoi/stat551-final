@@ -10,6 +10,9 @@ library(tidyverse)
 library(ggplot2)
 library(tidymodels)
 library(broom)
+library(discrim)
+library(rpart)
+library(rpart.plot)
 ```
 
 ```{r}
@@ -25,6 +28,7 @@ head(P_alc)
 ```
 
 #Mental Health Data
+
 ```{r}
 # Data Cleaning
 MH_clean <- MH %>% 
@@ -65,6 +69,7 @@ MH_clean
 
 
 ```
+
 ```{r}
 MH_clean %>%
 ggplot(aes(x = CGPA, fill = Anxiety)) +
@@ -178,6 +183,7 @@ tuning_metrics_rf %>%
 
 tuning_metrics_rf
 ```
+
 ```{r}
 rf_spec <- rand_forest(mtry = tune(), 
                        min_n = tune(), 
@@ -225,9 +231,36 @@ tuning_metrics_rf
 ```
 
 ```{r}
+
 MH_recipe1 <- recipe(CGPA ~ ., data = MH_clean) %>%
   step_rm(Course) %>%
   step_rm(GPA_midpoint)
+
+MH_clean_dt <- MH %>% 
+  mutate( Gender = as.factor(`Choose your gender`),
+          Course = as.factor(`What is your course?`),
+          Year = as.factor(`Your current year of Study`),
+          CGPA = as.factor(`What is your CGPA?`),
+          Marital_Status = as.factor(`Marital status`),
+          Depression = as.factor(`Do you have Depression?`),
+          Anxiety = as.factor(`Do you have Anxiety?`), 
+          Panic_Attacks = as.factor(`Do you have Panic attack?`),
+          Treatment = as.factor(`Did you seek any specialist for a treatment?`),
+          Year = ifelse(Year == "year 1", 1,
+                        ifelse(Year == "Year 1", 1,
+                        ifelse(Year == "year 2", 2,
+                        ifelse(Year == "Year 2", 2,
+                        ifelse(Year == "year 3", 3,
+                        ifelse(Year == "Year 3", 3,
+                               ifelse(Year== "year 4", 4, 4))))))),
+          ) %>%
+  dplyr::select(-Timestamp, -`Choose your gender`, -`What is your course?`, -`Your current year of Study`,
+                -`What is your CGPA?`, -`Marital status`, -`Do you have Depression?`,
+                -`Do you have Anxiety?`, -`Do you have Panic attack?`, 
+                -`Did you seek any specialist for a treatment?`)
+
+MH_recipe <- recipe(CGPA ~ ., data = MH_clean_dt) %>%
+  step_rm(Course)
 
 tree_mod <- decision_tree() %>%
   set_engine("rpart") %>%
@@ -238,7 +271,7 @@ tree_wflow <- workflow() %>%
   add_model(tree_mod)
 
 tree_fit_1 <- tree_wflow %>%
-  fit(MH_clean)
+  fit(MH_clean_dt)
 
 tree_fitted <- tree_fit_1 %>% 
   extract_fit_parsnip()
@@ -260,8 +293,7 @@ head(MH_clean)
 
 ```
 
-
-#Alcohol Data 
+#Alcohol Data
 
 ```{r}
 head(P_alc)
@@ -299,6 +331,7 @@ ggplot(aes(x = School, y= Final_Grade, fill=School)) +
        x = 'School', y = 'Grade') +
   theme_minimal() 
 ```
+
 ```{r}
 Alc_clean %>%
 ggplot(aes(x = Weekend_Alc, y= Final_Grade, fill=Weekend_Alc)) +
@@ -307,7 +340,6 @@ ggplot(aes(x = Weekend_Alc, y= Final_Grade, fill=Weekend_Alc)) +
        x = 'Weekend Alcohol Consumption', y = 'Grade') +
   theme_minimal()
 ```
-
 
 ```{r}
 Alc_clean %>%
@@ -350,7 +382,6 @@ ggplot(aes(x = absences)) +
   theme_minimal()
 ```
 
-
 ```{r}
 Alc_clean %>%
 ggplot(aes(x = Final_Grade, fill = "red4")) +
@@ -359,10 +390,10 @@ ggplot(aes(x = Final_Grade, fill = "red4")) +
        x = 'Final Grades', y = 'Proportion') +
   theme_minimal()
 ```
+
 ```{r}
 head(Alc_clean)
 ```
-
 
 ```{r}
 lin_reg_spec <- linear_reg() %>%
@@ -418,4 +449,3 @@ tuning_metrics_rf %>%
 
 tuning_metrics_rf
 ```
-
